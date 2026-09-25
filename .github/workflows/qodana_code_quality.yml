@@ -1,46 +1,36 @@
-#-------------------------------------------------------------------------------#
-#            Discover all capabilities of Qodana in our documentation           #
-#             https://www.jetbrains.com/help/qodana/about-qodana.html           #
-#-------------------------------------------------------------------------------#
+name: project cicd flow
 
-name: Qodana
 on:
-  workflow_dispatch:
-  pull_request:
   push:
-    branches:
-      - master
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  release:
+    types: [created]
+  workflow_dispatch:
 
 jobs:
-  qodana:
+  build:
+
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
-      checks: write
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          server-id: github
+          settings-path: ${{ github.workspace }}
 
-      - name: 'Qodana Scan'
-        uses: JetBrains/qodana-action@v2026.2
+      - name: Build with Maven
+        run: mvn clean install
+
+      - name: Publish to GitHub Packages Apache Maven
+        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
         env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
-        with:
-          # When pr-mode is set to true, Qodana analyzes only the files that have been changed
-          pr-mode: false
-          use-caches: true
-          post-pr-comment: true
-          use-annotations: true
-          # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
-          upload-result: false
-          # quick-fixes available in Ultimate and Ultimate Plus plans
-          push-fixes: 'none'
+          GITHUB_TOKEN: ${{ github.token }}
