@@ -10,4 +10,4 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/springboot-images-new.jar springboot-images-new.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "springboot-images-new.jar"]
