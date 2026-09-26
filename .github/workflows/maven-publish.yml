@@ -1,4 +1,4 @@
-# This workflow builds a package using Maven and publishes it to GitHub Packages
+# This workflow builds a package using Maven and publishes it to GitHub Packages & Docker Hub
 
 name: project cicd flow
 
@@ -13,24 +13,24 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          server-id: github
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          settings-path: ${{ github.workspace }}
 
       - name: Build with Maven
         run: mvn -B clean install
@@ -42,27 +42,25 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_ACTOR: ${{ github.actor }}
 
+      # Set up Docker Buildx (Required for docker/build-push-action)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Log in to Docker Hub using official action
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: |
-          # Strip stray spaces/newlines that often sneak in when pasting secrets
-          user="$(printf '%s' "$DOCKER_USERNAME" | tr -d '[:space:]')"
-          pass="$(printf '%s' "$DOCKER_PASSWORD" | tr -d '[:space:]')"
-          if [ -z "$user" ] || [ -z "$pass" ]; then
-            echo "::error::DOCKER_USERNAME or DOCKER_PASSWORD secret is empty or missing"
-            exit 1
-          fi
-          case "$user" in *@*) echo "::error::DOCKER_USERNAME must be the Docker Hub username, not an email"; exit 1;; esac
-          echo "Logging in as '$user' (password length: ${#pass})"
-          printf '%s' "$pass" | docker login docker.io -u "$user" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build & push Docker image
+      # Build and push Docker Image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: dockersai4321/springboot-images-new:latest
+          tags: |
+            dockersai4321/springboot-images-new:latest
+            dockersai4321/springboot-images-new:v1
